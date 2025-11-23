@@ -4,7 +4,25 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
 from train_model import SimpleCNN
-
+# Define SimpleCNN here to avoid import issues
+class SimpleCNN(torch.nn.Module):
+    def __init__(self):
+        super(SimpleCNN, self).__init__()
+        self.conv1 = torch.nn.Conv2d(3, 32, 3, padding=1)
+        self.conv2 = torch.nn.Conv2d(32, 64, 3, padding=1)
+        self.pool = torch.nn.MaxPool2d(2, 2)
+        self.fc1 = torch.nn.Linear(64 * 8 * 8, 512)
+        self.fc2 = torch.nn.Linear(512, 10)
+        self.dropout = torch.nn.Dropout(0.25)
+        
+    def forward(self, x):
+        x = self.pool(torch.relu(self.conv1(x)))
+        x = self.pool(torch.relu(self.conv2(x)))
+        x = x.view(-1, 64 * 8 * 8)
+        x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
 # Page Config
 st.set_page_config(
     page_title="AI Security System",
@@ -177,15 +195,27 @@ header, #MainMenu, footer {visibility: hidden;}
 # Floating Button
 st.markdown('<div class="floating-btn">Premium AI Security</div>', unsafe_allow_html=True)
 
-# Load model
+# Load model with error handling
 @st.cache_resource
 def load_model():
-    model = SimpleCNN()
-    model.load_state_dict(torch.load('cifar10_model.pth', map_location='cpu'))
-    model.eval()
-    return model
+    try:
+        import os
+        if not os.path.exists('cifar10_model.pth'):
+            st.error("❌ Model file not found! Please upload 'cifar10_model.pth'")
+            return None
+            
+        model = SimpleCNN()
+        model.load_state_dict(torch.load('cifar10_model.pth', map_location='cpu'))
+        model.eval()
+        st.success("✅ Model loaded successfully!")
+        return model
+    except Exception as e:
+        st.error(f"❌ Error loading model: {str(e)}")
+        return None
 
 model = load_model()
+if model is None:
+    st.stop()
 classes = ['airplane','car','bird','cat','deer','dog','frog','horse','ship','truck']
 transform = transforms.Compose([transforms.Resize((32,32)), transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
 
